@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 
+	"github.com/iris-contrib/middleware/jwt"
 	"github.com/kataras/iris/v12"
 	"go.uber.org/zap"
 
@@ -18,12 +19,8 @@ const (
 )
 
 type Server struct {
-	app    *iris.Application
-	opts   Options
-	store  service.KeyValueStore
 	ps     *service.PulpitService
 	secret string
-	logger *zap.Logger
 }
 
 type Options struct {
@@ -39,21 +36,18 @@ type Response struct {
 	Error   string      `json:"error,omitempty"`
 }
 
-func NewServer(app *iris.Application, opts Options) (*Server, error) {
-
-	log := opts.Logger.Named("Rest")
+func ConfigureApiServer(app *iris.Application, service *service.PulpitService) {
 	srv := &Server{
-		app:    app,
-		store:  opts.Store,
-		opts:   opts,
 		secret: os.Getenv("SERVER_SECRET"),
-		logger: log,
-		ps:     opts.PulpitService,
+		ps:     service,
 	}
-
-	srv.buildHandlers()
-
-	return srv, nil
+	j := jwt.New(jwt.Config{
+		ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
+			return []byte(srv.secret), nil
+		},
+		SigningMethod: jwt.SigningMethodHS256,
+	})
+	srv.configuredHandlers(app, j)
 }
 
 func returnError(ctx iris.Context, er error, statusCode int) {

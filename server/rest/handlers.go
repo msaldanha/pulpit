@@ -12,15 +12,9 @@ import (
 	"github.com/msaldanha/pulpit/models"
 )
 
-func (s *Server) buildHandlers() {
-	j := jwt.New(jwt.Config{
-		ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
-			return []byte(s.secret), nil
-		},
-		SigningMethod: jwt.SigningMethodHS256,
-	})
+func (s *Server) configuredHandlers(app *iris.Application, j *jwt.Middleware) {
 
-	topLevel := s.app.Party("/")
+	topLevel := app.Party("/")
 
 	topLevel.Get("randomaddress", j.Serve, s.getRandomAddress)
 	topLevel.Get("media", j.Serve, s.getMedia)

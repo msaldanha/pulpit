@@ -3,12 +3,15 @@ package server
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/ipfs/kubo/core/coreapi"
 	icore "github.com/ipfs/kubo/core/coreiface"
+	"github.com/iris-contrib/middleware/cors"
 	"github.com/kataras/iris/v12"
+	"github.com/kataras/iris/v12/middleware/logger"
+	"github.com/kataras/iris/v12/middleware/recover"
+	"github.com/kataras/iris/v12/sessions"
 	bolt "go.etcd.io/bbolt"
 	"go.uber.org/zap"
 
@@ -50,7 +53,6 @@ type Server struct {
 	secret             string
 	logger             *zap.Logger
 	ipfsServer         *ipfs.IpfsServer
-	restService        *rest.Server
 	compositeTimelines map[string]*timeline.CompositeTimeline
 	db                 *bolt.DB
 	app                *iris.Application
@@ -128,18 +130,9 @@ func NewServer(opts Options) (*Server, error) {
 
 	ps := service.NewPulpitService(nameSpace, addressStore, ipfs, node, evmf, logger, subsStore, compositeTimelines, db)
 
-	app := web.NewServer(ps)
-
-	restServer, er := rest.NewServer(app, rest.Options{
-		Url:           opts.Url,
-		Store:         addressStore,
-		DataStore:     opts.DataStore,
-		Logger:        logger,
-		PulpitService: ps,
-	})
-	if er != nil {
-		return nil, er
-	}
+	app := NewWebApplication()
+	web.ConfigureWebServer(app, ps)
+	rest.ConfigureApiServer(app, ps)
 
 	return &Server{
 		opts:               opts,
@@ -150,7 +143,6 @@ func NewServer(opts Options) (*Server, error) {
 		secret:             "",
 		logger:             logger,
 		ipfsServer:         ipfsServer,
-		restService:        restServer,
 		compositeTimelines: compositeTimelines,
 		db:                 db,
 		app:                app,
@@ -158,15 +150,14 @@ func NewServer(opts Options) (*Server, error) {
 }
 
 func (s *Server) Run() error {
-	wg := &sync.WaitGroup{}
+	wg := &ChannelWaitGroup{}
 	wg.Add(1)
 	errCh := make(chan error, 1+len(s.compositeTimelines))
 	go func() {
 		defer wg.Done()
-		// if err := s.restService.Run(); err != nil {
-		// 	errCh <- err
-		// }
-		s.app.Run(iris.Addr(s.opts.Url))
+		if err := s.app.Run(iris.Addr(s.opts.Url)); err != nil {
+			errCh <- err
+		}
 	}()
 	for _, tl := range s.compositeTimelines {
 		wg.Add(1)
@@ -178,11 +169,33 @@ func (s *Server) Run() error {
 		}()
 	}
 
-	wg.Wait()
 	select {
+	case <-wg.Wait():
+		return nil
 	case err := <-errCh:
 		return err
-	default:
-		return nil
+
 	}
+
+}
+
+func NewWebApplication() *iris.Application {
+	app := iris.New()
+	app.Logger().SetLevel("debug")
+	app.Use(recover.New())
+	app.Use(logger.New())
+
+	sess := sessions.New(sessions.Config{Cookie: "pulpit"})
+	app.Use(sess.Handler())
+
+	crs := cors.New(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "POST", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"*"},
+		AllowCredentials: true,
+	})
+	app.Use(crs)
+	app.AllowMethods(iris.MethodOptions)
+
+	return app
 }
