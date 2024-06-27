@@ -13,33 +13,29 @@ import (
 )
 
 func (s *Server) configuredHandlers(app *iris.Application, j *jwt.Middleware) {
+	topLevel := app.Party(basePath)
 
-	topLevel := app.Party("/")
-
-	topLevel.Get("randomaddress", j.Serve, s.getRandomAddress)
-	topLevel.Get("media", j.Serve, s.getMedia)
-	topLevel.Post("media", j.Serve, s.postMedia)
-	topLevel.Post("login", s.login)
+	topLevel.Get("/media", j.Serve, s.getMedia)
+	topLevel.Post("/media", j.Serve, s.postMedia)
+	topLevel.Post("/login", s.login)
 
 	addresses := topLevel.Party("/addresses")
-	addresses.Get("/", s.getAddresses, j.Serve)
-	addresses.Post("/", s.createAddress)
+	addresses.Get("randomaddress", j.Serve, s.getRandomAddress)
+	addresses.Get("/", j.Serve, s.getAddresses)
+	addresses.Post("/", j.Serve, s.createAddress)
 	addresses.Delete("/{addr:string}", s.deleteAddress, j.Serve)
 
-	tl := topLevel.Party("/tl", j.Serve)
-	ns := tl.Party("/{ns:string}")
+	topLevel.Get("/{addr:string}/publications", s.getItems)
+	topLevel.Get("/{addr:string}/publications/{key:string}", s.getItemByKey)
+	topLevel.Get("/{addr:string}/publications/{key:string}/{connector:string}", s.getItems)
+	topLevel.Post("/{addr:string}/publications", j.Serve, s.createItem)
+	topLevel.Post("/{addr:string}/publications/{key:string}/{connector:string}", j.Serve, s.createItem)
 
-	ns.Get("/{addr:string}/publications", s.getItems)
-	ns.Get("/{addr:string}/publications/{key:string}", s.getItemByKey)
-	ns.Get("/{addr:string}/publications/{key:string}/{connector:string}", s.getItems)
-	ns.Post("/{addr:string}/publications", s.createItem)
-	ns.Post("/{addr:string}/publications/{key:string}/{connector:string}", s.createItem)
-
-	ns.Get("/{addr:string}/subscriptions", s.getSubscriptions)
-	ns.Post("/{addr:string}/subscriptions", s.addSubscription)
-	ns.Delete("/{addr:string}/subscriptions", s.removeSubscription)
-	ns.Get("/{addr:string}/subscriptions/publications", s.getSubscriptionsPublications)
-	ns.Delete("/{addr:string}/subscriptions/publications", s.clearSubscriptionPublications)
+	topLevel.Get("/{addr:string}/subscriptions", j.Serve, s.getSubscriptions)
+	topLevel.Post("/{addr:string}/subscriptions", j.Serve, s.addSubscription)
+	topLevel.Delete("/{addr:string}/subscriptions", j.Serve, s.removeSubscription)
+	topLevel.Get("/{addr:string}/subscriptions/publications", s.getSubscriptionsPublications)
+	topLevel.Delete("/{addr:string}/subscriptions/publications", j.Serve, s.clearSubscriptionPublications)
 }
 
 func (s *Server) createAddress(ctx iris.Context) {
@@ -215,9 +211,17 @@ func (s *Server) createItem(ctx iris.Context) {
 		connector = "main"
 	}
 
-	user := ctx.Values().Get("jwt").(*jwt.Token)
+	tkValue := ctx.Values().Get("jwt")
+	if tkValue == nil {
+		ctx.StatusCode(401)
+		return
+	}
+	user, ok := tkValue.(*jwt.Token)
+	if !ok {
+		ctx.StatusCode(401)
+		return
+	}
 	claims := user.Claims.(jwt.MapClaims)
-
 	if claims[addressClaim] != addr {
 		ctx.StatusCode(401)
 		return

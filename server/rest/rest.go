@@ -16,6 +16,7 @@ import (
 const (
 	defaultCount = 20
 	addressClaim = "address"
+	basePath     = "/api/v1"
 )
 
 type Server struct {
