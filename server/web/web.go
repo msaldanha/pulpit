@@ -13,9 +13,9 @@ import (
 const basePath = "/mvc"
 
 func ConfigureWebServer(app *iris.Application, service *service.PulpitService) {
-	app.RegisterView(iris.HTML("./server/web/views", ".html").Layout("shared/layout.html"))
+	app.RegisterView(iris.HTML("./server/web/views", ".html").Layout("shared/layout.html").Reload(true))
 
-	app.HandleDir("./server/web/public", iris.Dir("./public"))
+	app.HandleDir("/public", iris.Dir("./server/web/public"))
 
 	mvc.Configure(app.Party(basePath+"/login"),
 		commonControllerSetupFunc(service, new(controller.LoginController)))

@@ -28,6 +28,8 @@ import (
 	"github.com/msaldanha/pulpit/models"
 )
 
+const addressValue = "address"
+
 type PulpitService struct {
 	store              KeyValueStore
 	timelines          map[string]timeline.Timeline
@@ -210,6 +212,14 @@ func (s *PulpitService) GetItems(ctx context.Context, addr, keyRoot, connector, 
 }
 
 func (s *PulpitService) GetItemByKey(ctx context.Context, addr, key string) (*timeline.Item, error) {
+	ctl, found := s.getCompositeTimeline(ctx)
+	if found {
+		item, found, _ := ctl.Get(ctx, key)
+		if found {
+			return &item, nil
+		}
+	}
+
 	tl, er := s.getTimeline(addr)
 	if er != nil {
 		return nil, er
@@ -367,6 +377,15 @@ func (s *PulpitService) getTimeline(addr string) (timeline.Timeline, error) {
 	return s.createTimeLine(a)
 }
 
+func (s *PulpitService) getCompositeTimeline(ctx context.Context) (*timeline.CompositeTimeline, bool) {
+	addr := s.extractAddress(ctx)
+	if addr == "" {
+		return nil, false
+	}
+	tl, found := s.compositeTimelines[addr]
+	return tl, found
+}
+
 func (s *PulpitService) getAddress(addr, pass string) (*address.Address, error) {
 	var a address.Address
 	a = address.Address{Address: addr}
@@ -461,6 +480,21 @@ func (s *PulpitService) addFile(ctx context.Context, name string) (string, error
 
 	fmt.Printf("Added file to IPFS with CID %s\n", cidFile.String())
 	return cidFile.String(), nil
+}
+
+func (s *PulpitService) extractAddress(ctx context.Context) string {
+	v := ctx.Value(addressValue)
+	if v == nil {
+		return ""
+	}
+	addr, ok := v.(string)
+	if !ok {
+		return ""
+	}
+	if _, exists := s.logins[addr]; !exists {
+		return ""
+	}
+	return addr
 }
 
 func getFileContentType(path string) (string, error) {

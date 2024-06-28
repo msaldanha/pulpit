@@ -1,13 +1,20 @@
 package controller
 
 import (
-	"context"
+	"strings"
 
 	"github.com/kataras/iris/v12/mvc"
+	"github.com/msaldanha/timeline"
+
+	"github.com/msaldanha/pulpit/models"
+	"github.com/msaldanha/pulpit/server/web/model"
 )
 
-const timeLineTemplate = "timeline.html"
-const postDetailTemplate = "post.html"
+const (
+	timeLineTemplate     = "timeline.html"
+	timeLineItemTemplate = "timeline_item.html"
+	postDetailTemplate   = "post.html"
+)
 
 type TimelineController struct {
 	AuthController
@@ -18,37 +25,51 @@ func (c *TimelineController) BeforeActivation(b mvc.BeforeActivation) {
 }
 
 func (c *TimelineController) Get() mvc.Result {
-	ctx := context.Background()
-	items, err := c.Service.GetSubscriptionsPublications(ctx, c.Address, "", 40)
+	items, err := c.Service.GetSubscriptionsPublications(c.ctx, c.Address, "", 40)
 	if err != nil {
 		return c.fireError(err)
 	}
-	return mvc.View{
-		Name: timeLineTemplate,
-		Data: items,
+	return view(timeLineTemplate, items, false)
+}
+
+func (c *TimelineController) Post(req model.AddPostRequest) mvc.Result {
+	connectors := strings.Split(req.Connectors, ",")
+	key, err := c.Service.CreateItem(c.ctx, c.Address, "", "", models.AddItemRequest{
+		Type: "Post",
+		PostItem: models.PostItem{
+			Part: timeline.Part{
+				MimeType: "text/text",
+				Encoding: "",
+				Title:    "",
+				Body:     req.Body,
+			},
+			Links:       nil,
+			Attachments: nil,
+			Connectors:  connectors,
+		},
+	})
+	if err != nil {
+		return c.fireError(err)
 	}
+	item, err := c.Service.GetItemByKey(c.ctx, c.Address, key)
+	if err != nil {
+		return c.fireError(err)
+	}
+	return view(timeLineItemTemplate, item, true)
 }
 
 func (c *TimelineController) GetBy(address string) mvc.Result {
-	ctx := context.Background()
-	items, err := c.Service.GetItems(ctx, address, "", "", "", "", 40)
+	items, err := c.Service.GetItems(c.ctx, address, "", "", "", "", 40)
 	if err != nil {
 		return c.fireError(err)
 	}
-	return mvc.View{
-		Name: timeLineTemplate,
-		Data: items,
-	}
+	return view(timeLineTemplate, items, false)
 }
 
 func (c *TimelineController) GetPost(address, postKey string) mvc.Result {
-	ctx := context.Background()
-	item, err := c.Service.GetItemByKey(ctx, address, postKey)
+	item, err := c.Service.GetItemByKey(c.ctx, address, postKey)
 	if err != nil {
 		return c.fireError(err)
 	}
-	return mvc.View{
-		Name: postDetailTemplate,
-		Data: item,
-	}
+	return view(postDetailTemplate, item, false)
 }

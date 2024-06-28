@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"strings"
 
 	"github.com/kataras/iris/v12"
@@ -29,12 +30,17 @@ func (s Secret) String() string {
 	return string(s)
 }
 
+type ViewPayload[T any] struct {
+	BasePath string
+	Model    T
+}
+
 // AuthController is the user authentication controller, a custom shared controller.
 type AuthController struct {
 	// context is auto-binded if struct depends on this,
 	// in this controller we don't we do everything with mvc-style,
 	// and that's neither the 30% of its features.
-	// Ctx iris.Context
+	Ctx iris.Context
 
 	Service *service.PulpitService
 	Session *sessions.Session
@@ -43,11 +49,13 @@ type AuthController struct {
 	// this will be new for each new incoming request, BeginRequest sets that based on the session.
 	Address string
 	secret  Secret
+	ctx     context.Context
 }
 
 // BeginRequest saves login state to the context, the user id.
 func (c *AuthController) BeginRequest(ctx iris.Context) {
 	c.Address = c.Session.GetString(sessionIDKey)
+	c.ctx = context.WithValue(context.Background(), addressClaim, c.Address)
 	if !strings.Contains(ctx.Path(), PathLogin.Path) && !c.Service.IsLoggedIn(c.Address) {
 		ctx.Redirect(PathLogin.Path, iris.StatusFound)
 		return
@@ -84,4 +92,19 @@ func (c *AuthController) logout() mvc.Response {
 		c.Session.Destroy()
 	}
 	return PathLogin
+}
+
+func view[T any](name string, data T, disableLayout bool) mvc.View {
+	layout := ""
+	if disableLayout {
+		layout = iris.NoLayout
+	}
+	return mvc.View{
+		Name:   name,
+		Layout: layout,
+		Data: ViewPayload[T]{
+			BasePath: BasePath,
+			Model:    data,
+		},
+	}
 }

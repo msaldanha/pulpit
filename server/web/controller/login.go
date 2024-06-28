@@ -1,8 +1,6 @@
 package controller
 
 import (
-	"context"
-
 	"github.com/kataras/iris/v12/mvc"
 
 	"github.com/msaldanha/pulpit/server/web/model"
@@ -17,13 +15,11 @@ type LoginController struct {
 func (c *LoginController) Get() mvc.Result {
 	return mvc.View{
 		Name: loginTemplate,
-		// Data: page{"User Registration"},
 	}
 }
 
 func (c *LoginController) Post(req model.LoginRequest) mvc.Result {
-	ctx := context.Background()
-	err := c.Service.Login(ctx, req.Address, req.Password)
+	err := c.Service.Login(c.ctx, req.Address, req.Password)
 	if err != nil {
 		return c.fireError(err)
 	}

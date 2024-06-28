@@ -8,3 +8,8 @@ type LoginRequest struct {
 type AddSubscriptionRequest struct {
 	Address string `json:"address"`
 }
+
+type AddPostRequest struct {
+	Body       string `json:"body"`
+	Connectors string `json:"connectors"`
+}

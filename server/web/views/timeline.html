@@ -1,5 +1,13 @@
-<div class="row">
-    {{ range . }}
+<form hx-post="{{ .BasePath }}" hx-target="#timeline" hx-swap="afterbegin">
+    <div class="mb-3">
+        <input type="text" class="form-control" id="body" aria-describedby="bodyHelp" name="body" required>
+        <div id="bodyHelp" class="form-text">What is happening?!</div>
+    </div>
+    <input type="hidden" value="like" id="connectors" name="connectors">
+    <button type="submit" class="btn btn-primary">Post</button>
+</form>
+<div class="row" id="timeline">
+    {{ range .Model }}
     <div class="col-sm-6">
         <div class="card">
             <div class="card-body">
