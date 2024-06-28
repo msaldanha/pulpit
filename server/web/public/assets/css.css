@@ -3,43 +3,30 @@ html, body {
     font-family: 'Ubuntu', sans-serif;
 }
 
-.gfg {
-    height: 50px;
-    width: 50px;
-
+#wrapper {
+    overflow-x: hidden;
 }
 
-.mynav {
-    color: #fff;
+#sidebar-wrapper {
+    min-height: 100vh;
+    margin-left: -15rem;
+    transition: margin 0.25s ease-out;
 }
 
-.mynav li a {
-    color: #fff;
-    text-decoration: none;
-    width: 100%;
-    display: block;
-    border-radius: 5px;
-    padding: 8px 5px;
+#sidebar-wrapper .sidebar-heading {
+    padding: 0.875rem 1.25rem;
+    font-size: 1.2rem;
 }
 
-.mynav li a.active {
-    background: rgba(255, 255, 255, 0.2);
+#sidebar-wrapper .list-group {
+    width: 15rem;
 }
 
-.mynav li a:hover {
-    background: rgba(255, 255, 255, 0.2);
+#page-content-wrapper {
+    min-width: 100vw;
 }
 
-.mynav li a i {
-    width: 25px;
-    text-align: center;
+body.sb-sidenav-toggled #wrapper #sidebar-wrapper {
+    margin-left: 0;
 }
 
-.notification-badge {
-    background-color: rgba(255, 255, 255, 0.7);
-    float: right;
-    color: #222;
-    font-size: 14px;
-    padding: 0px 8px;
-    border-radius: 2px;
-}
