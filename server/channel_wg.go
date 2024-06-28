@@ -10,7 +10,7 @@ type ChannelWaitGroup struct {
 	once     sync.Once
 }
 
-func (wg *ChannelWaitGroup) Wait() chan struct{} {
+func (wg *ChannelWaitGroup) Wait() <-chan struct{} {
 	wg.once.Do(func() {
 		wg.doneChan = make(chan struct{})
 		go func() {
