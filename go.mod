@@ -11,8 +11,8 @@ require (
 	github.com/iris-contrib/middleware/jwt v0.0.0-20250207234507-372f6828ef8c
 	github.com/kataras/iris/v12 v12.2.11
 	github.com/libp2p/go-libp2p v0.41.1
-	github.com/msaldanha/setinstone v0.0.0-20240624193317-34ea259f6ac8
-	github.com/msaldanha/timeline v0.0.0-20240624201429-28e641ff5c5f
+	github.com/msaldanha/setinstone v0.0.0-20250418162318-39e1b0a9c9fe
+	github.com/msaldanha/timeline v0.0.0-20250418165747-03e96ce50206
 	github.com/multiformats/go-multiaddr v0.15.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.37.0
@@ -89,7 +89,7 @@ require (
 	github.com/gomarkdown/markdown v0.0.0-20250311123330-531bef5e742b // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/gopacket v1.1.19 // indirect
-	github.com/google/pprof v0.0.0-20250417201159-ae779711f5d1 // indirect
+	github.com/google/pprof v0.0.0-20250418163039-24c5476c6587 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect

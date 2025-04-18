@@ -422,30 +422,33 @@ func (s *PulpitService) createTimeLine(a *address.Address) (timeline.Timeline, e
 	return tl, nil
 }
 
-func (s *PulpitService) toTimelineReference(referenceItem models.ReferenceItem) timeline.ReferenceItem {
-	return timeline.ReferenceItem{
-		Reference: timeline.Reference{
-			Target:    referenceItem.Target,
-			Connector: referenceItem.Connector,
-		},
+func (s *PulpitService) toTimelineReference(referenceItem models.ReferenceItem) timeline.Reference {
+	return timeline.Reference{
+		Target:    referenceItem.Target,
+		Connector: referenceItem.Connector,
 		Base: timeline.Base{
 			Type: timeline.TypeReference,
 		},
 	}
 }
-func (s *PulpitService) toTimelinePost(postItem models.PostItem) (timeline.PostItem, error) {
-	post := timeline.Post{}
-	post.Part = postItem.Part
-	post.Links = postItem.Links
+func (s *PulpitService) toTimelinePost(postItem models.PostItem) (timeline.Post, error) {
+	post := timeline.Post{
+		Part:  postItem.Part,
+		Links: postItem.Links,
+		Base: timeline.Base{
+			Type:       timeline.TypePost,
+			Connectors: postItem.Connectors,
+		},
+	}
 	c := context.Background()
 	for i, v := range postItem.Attachments {
 		mimeType, er := getFileContentType(v)
 		if er != nil {
-			return timeline.PostItem{}, er
+			return timeline.Post{}, er
 		}
 		cid, er := s.addFile(c, v)
 		if er != nil {
-			return timeline.PostItem{}, er
+			return timeline.Post{}, er
 		}
 		post.Attachments = append(post.Attachments, timeline.PostPart{
 			Seq:  i + 1,
@@ -457,14 +460,8 @@ func (s *PulpitService) toTimelinePost(postItem models.PostItem) (timeline.PostI
 			},
 		})
 	}
-	mi := timeline.PostItem{
-		Post: post,
-		Base: timeline.Base{
-			Type:       timeline.TypePost,
-			Connectors: postItem.Connectors,
-		},
-	}
-	return mi, nil
+
+	return post, nil
 }
 
 func (s *PulpitService) addFile(ctx context.Context, name string) (string, error) {
