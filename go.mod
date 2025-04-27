@@ -12,7 +12,7 @@ require (
 	github.com/kataras/iris/v12 v12.2.11
 	github.com/libp2p/go-libp2p v0.41.1
 	github.com/msaldanha/setinstone v0.0.0-20250424140435-5ce81cdda030
-	github.com/msaldanha/timeline v0.0.0-20250424182536-ac37b6cabd3e
+	github.com/msaldanha/timeline v0.0.0-20250427183705-93387aaf387a
 	github.com/multiformats/go-multiaddr v0.15.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.37.0
@@ -208,7 +208,7 @@ require (
 	github.com/pion/mdns/v2 v2.0.7 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/rtcp v1.2.15 // indirect
-	github.com/pion/rtp v1.8.13 // indirect
+	github.com/pion/rtp v1.8.15 // indirect
 	github.com/pion/sctp v1.8.39 // indirect
 	github.com/pion/sdp/v3 v3.0.11 // indirect
 	github.com/pion/srtp/v3 v3.0.4 // indirect
@@ -230,7 +230,7 @@ require (
 	github.com/raulk/go-watchdog v1.3.0 // indirect
 	github.com/rogpeppe/go-internal v1.13.1 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
-	github.com/samber/lo v1.49.1 // indirect
+	github.com/samber/lo v1.50.0 // indirect
 	github.com/schollz/closestmatch v2.1.0+incompatible // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect

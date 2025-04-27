@@ -276,7 +276,8 @@ func (s *PulpitService) AddSubscription(ctx context.Context, sub models.Subscrip
 		}
 		s.compositeTimelines[sub.Owner] = compositeTimeline
 	}
-	err := compositeTimeline.LoadTimeline(sub.Address)
+	addr := &address.Address{Address: sub.Address}
+	err := compositeTimeline.LoadTimeline(addr)
 	if err != nil {
 		return err
 	}

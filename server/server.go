@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ipfs/kubo/core"
 	"github.com/ipfs/kubo/core/coreapi"
 	icore "github.com/ipfs/kubo/core/coreiface"
 	"github.com/iris-contrib/middleware/cors"
@@ -15,6 +16,7 @@ import (
 	bolt "go.etcd.io/bbolt"
 	"go.uber.org/zap"
 
+	"github.com/msaldanha/setinstone/address"
 	"github.com/msaldanha/setinstone/event"
 	"github.com/msaldanha/timeline"
 
@@ -99,34 +101,7 @@ func NewServer(opts Options) (*Server, error) {
 		panic(fmt.Errorf("failed to setup subscriptions DB: %s", er))
 	}
 
-	compositeTimelines := make(map[string]*timeline.CompositeTimeline)
-
-	owners, er := subsStore.GetOwners()
-	if er != nil {
-		panic(fmt.Errorf("failed to read owners: %s", er))
-	}
-	for _, owner := range owners {
-		dao := timeline.NewCompositeDao(db, owner)
-		compositeTimeline, er := timeline.NewCompositeTimeline(nameSpace, node, evmf, logger, owner, dao)
-		if er != nil {
-			panic(fmt.Errorf("failed to create composite timeline: %s", er.Error()))
-		}
-		er = compositeTimeline.Init()
-		if er != nil {
-			panic(fmt.Errorf("failed to init composite timeline: %s", er.Error()))
-		}
-		subs, er := subsStore.GetAllSubscriptionsForOwner(owner)
-		if er != nil {
-			panic(fmt.Errorf("failed to read subscriptions: %s", er.Error()))
-		}
-		for _, sub := range subs {
-			err := compositeTimeline.LoadTimeline(sub.Address)
-			if err != nil {
-				panic(fmt.Errorf("failed to load subscription: %s", er.Error()))
-			}
-		}
-		compositeTimelines[owner] = compositeTimeline
-	}
+	compositeTimelines := loadCompositeTimelines(nameSpace, node, evmf, logger, subsStore, db)
 
 	ps := service.NewPulpitService(nameSpace, addressStore, ipfs, node, evmf, logger, subsStore, compositeTimelines, db)
 
@@ -198,4 +173,39 @@ func NewWebApplication() *iris.Application {
 	app.AllowMethods(iris.MethodOptions)
 
 	return app
+}
+
+func loadCompositeTimelines(nameSpace string, node *core.IpfsNode, evmf event.ManagerFactory, logger *zap.Logger,
+	subsStore *service.SubscriptionsStoreImpl, db *bolt.DB) map[string]*timeline.CompositeTimeline {
+	compositeTimelines := make(map[string]*timeline.CompositeTimeline)
+
+	owners, er := subsStore.GetOwners()
+	if er != nil {
+		panic(fmt.Errorf("failed to read owners: %s", er))
+	}
+	for _, owner := range owners {
+		dao := timeline.NewCompositeDao(db, owner)
+		compositeTimeline, er := timeline.NewCompositeTimeline(nameSpace, node, evmf, logger, owner, dao)
+		if er != nil {
+			panic(fmt.Errorf("failed to create composite timeline: %s", er.Error()))
+		}
+		er = compositeTimeline.Init()
+		if er != nil {
+			panic(fmt.Errorf("failed to init composite timeline: %s", er.Error()))
+		}
+		subs, er := subsStore.GetAllSubscriptionsForOwner(owner)
+		if er != nil {
+			panic(fmt.Errorf("failed to read subscriptions: %s", er.Error()))
+		}
+		for _, sub := range subs {
+			addr := &address.Address{Address: sub.Address}
+			err := compositeTimeline.LoadTimeline(addr)
+			if err != nil {
+				panic(fmt.Errorf("failed to load subscription: %s", err.Error()))
+			}
+		}
+		compositeTimelines[owner] = compositeTimeline
+	}
+
+	return compositeTimelines
 }
