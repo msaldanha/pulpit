@@ -16,7 +16,6 @@ import (
 	"github.com/ipfs/kubo/core"
 	icore "github.com/ipfs/kubo/core/coreiface"
 	bolt "go.etcd.io/bbolt"
-
 	"go.uber.org/zap"
 
 	"github.com/msaldanha/setinstone/address"
@@ -32,7 +31,7 @@ const addressValue = "address"
 
 type PulpitService struct {
 	store              KeyValueStore
-	timelines          map[string]timeline.Timeline
+	timelines          map[string]*timeline.Timeline
 	ipfs               icore.CoreAPI
 	node               *core.IpfsNode
 	logins             map[string]string
@@ -45,17 +44,17 @@ type PulpitService struct {
 }
 
 func NewPulpitService(nameSpace string, store KeyValueStore, ipfs icore.CoreAPI, node *core.IpfsNode, evmFactory event.ManagerFactory,
-	logger *zap.Logger, subsStore SubscriptionsStore, compositeTimelines map[string]*timeline.CompositeTimeline, db *bolt.DB) *PulpitService {
+	logger *zap.Logger, subsStore SubscriptionsStore, db *bolt.DB) *PulpitService {
 	return &PulpitService{
 		store:              store,
 		ipfs:               ipfs,
 		node:               node,
-		timelines:          map[string]timeline.Timeline{},
+		timelines:          map[string]*timeline.Timeline{},
 		logins:             map[string]string{},
 		evmFactory:         evmFactory,
 		logger:             logger.Named("Pulpit"),
 		subsStore:          subsStore,
-		compositeTimelines: compositeTimelines,
+		compositeTimelines: map[string]*timeline.CompositeTimeline{},
 		nameSpace:          nameSpace,
 		db:                 db,
 	}
@@ -118,6 +117,19 @@ func (s *PulpitService) Login(ctx context.Context, addr, password string) error 
 	}
 
 	s.logins[addr] = password
+
+	tl, err := s.createTimeLine(a)
+	if err != nil {
+		return err
+	}
+	compositeTimeline, err := s.createCompositeTimeLine(a)
+	if err != nil {
+		return err
+	}
+	err = compositeTimeline.AddTimeline(tl)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -324,7 +336,7 @@ func (s *PulpitService) ClearSubscriptionsPublications(ctx context.Context, owne
 	return nil
 }
 
-func (s *PulpitService) createPost(ctx context.Context, tl timeline.Timeline, postItem models.PostItem, keyRoot, connector string) (string, error) {
+func (s *PulpitService) createPost(ctx context.Context, tl *timeline.Timeline, postItem models.PostItem, keyRoot, connector string) (string, error) {
 	if len(postItem.Connectors) == 0 {
 		er := fmt.Errorf("reference types cannot be empty")
 		return "", er
@@ -347,7 +359,7 @@ func (s *PulpitService) createPost(ctx context.Context, tl timeline.Timeline, po
 	return key, nil
 }
 
-func (s *PulpitService) createReference(ctx context.Context, tl timeline.Timeline, postItem models.ReferenceItem, keyRoot, connector string) (string, error) {
+func (s *PulpitService) createReference(ctx context.Context, tl *timeline.Timeline, postItem models.ReferenceItem, keyRoot, connector string) (string, error) {
 	if postItem.Target == "" {
 		er := fmt.Errorf("target cannot be empty")
 		return "", er
@@ -362,7 +374,7 @@ func (s *PulpitService) createReference(ctx context.Context, tl timeline.Timelin
 	return key, nil
 }
 
-func (s *PulpitService) getTimeline(addr string) (timeline.Timeline, error) {
+func (s *PulpitService) getTimeline(addr string) (*timeline.Timeline, error) {
 	tl, found := s.timelines[addr]
 	if found {
 		return tl, nil
@@ -413,7 +425,7 @@ func (s *PulpitService) getAddress(addr, pass string) (*address.Address, error) 
 	return &a, nil
 }
 
-func (s *PulpitService) createTimeLine(a *address.Address) (timeline.Timeline, error) {
+func (s *PulpitService) createTimeLine(a *address.Address) (*timeline.Timeline, error) {
 	gr := graph.New(s.nameSpace, a, s.node, s.logger)
 	tl, er := timeline.NewTimeline(s.nameSpace, a, gr, s.evmFactory, s.logger)
 	if er != nil {
@@ -421,6 +433,35 @@ func (s *PulpitService) createTimeLine(a *address.Address) (timeline.Timeline, e
 	}
 	s.timelines[a.Address] = tl
 	return tl, nil
+}
+
+func (s *PulpitService) createCompositeTimeLine(a *address.Address) (*timeline.CompositeTimeline, error) {
+	dao := timeline.NewCompositeDao(s.db, a.Address)
+	compositeTimeline, er := timeline.NewCompositeTimeline(s.nameSpace, s.node, s.evmFactory, s.logger, a.Address, dao)
+	if er != nil {
+		return nil, fmt.Errorf("failed to create composite timeline: %s", er.Error())
+	}
+	er = compositeTimeline.Init()
+	if er != nil {
+		return nil, fmt.Errorf("failed to init composite timeline: %s", er.Error())
+	}
+	subs, er := s.subsStore.GetAllSubscriptionsForOwner(a.Address)
+	if er != nil {
+		return nil, fmt.Errorf("failed to read subscriptions: %s", er.Error())
+	}
+	for _, sub := range subs {
+		addr := &address.Address{Address: sub.Address}
+		err := compositeTimeline.LoadTimeline(addr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load subscription: %s", err.Error())
+		}
+	}
+	er = compositeTimeline.Run()
+	if er != nil {
+		return nil, fmt.Errorf("failed to run composite timeline: %s", er.Error())
+	}
+	s.compositeTimelines[a.Address] = compositeTimeline
+	return compositeTimeline, nil
 }
 
 func (s *PulpitService) toTimelineReference(referenceItem models.ReferenceItem) timeline.Reference {

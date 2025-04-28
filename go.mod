@@ -11,8 +11,8 @@ require (
 	github.com/iris-contrib/middleware/jwt v0.0.0-20250207234507-372f6828ef8c
 	github.com/kataras/iris/v12 v12.2.11
 	github.com/libp2p/go-libp2p v0.41.1
-	github.com/msaldanha/setinstone v0.0.0-20250424140435-5ce81cdda030
-	github.com/msaldanha/timeline v0.0.0-20250427183705-93387aaf387a
+	github.com/msaldanha/setinstone v0.0.0-20250427200802-8d8eb8694ade
+	github.com/msaldanha/timeline v0.0.0-20250428194148-a3048bc71acd
 	github.com/multiformats/go-multiaddr v0.15.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.37.0

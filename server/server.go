@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ipfs/kubo/core"
 	"github.com/ipfs/kubo/core/coreapi"
 	icore "github.com/ipfs/kubo/core/coreiface"
 	"github.com/iris-contrib/middleware/cors"
@@ -16,9 +15,7 @@ import (
 	bolt "go.etcd.io/bbolt"
 	"go.uber.org/zap"
 
-	"github.com/msaldanha/setinstone/address"
 	"github.com/msaldanha/setinstone/event"
-	"github.com/msaldanha/timeline"
 
 	"github.com/msaldanha/pulpit/server/ipfs"
 	"github.com/msaldanha/pulpit/server/rest"
@@ -47,17 +44,16 @@ type Response struct {
 }
 
 type Server struct {
-	opts               Options
-	store              service.KeyValueStore
-	ipfs               icore.CoreAPI
-	evmf               event.ManagerFactory
-	ps                 *service.PulpitService
-	secret             string
-	logger             *zap.Logger
-	ipfsServer         *ipfs.IpfsServer
-	compositeTimelines map[string]*timeline.CompositeTimeline
-	db                 *bolt.DB
-	app                *iris.Application
+	opts       Options
+	store      service.KeyValueStore
+	ipfs       icore.CoreAPI
+	evmf       event.ManagerFactory
+	ps         *service.PulpitService
+	secret     string
+	logger     *zap.Logger
+	ipfsServer *ipfs.IpfsServer
+	db         *bolt.DB
+	app        *iris.Application
 }
 
 func NewServer(opts Options) (*Server, error) {
@@ -101,48 +97,36 @@ func NewServer(opts Options) (*Server, error) {
 		panic(fmt.Errorf("failed to setup subscriptions DB: %s", er))
 	}
 
-	compositeTimelines := loadCompositeTimelines(nameSpace, node, evmf, logger, subsStore, db)
-
-	ps := service.NewPulpitService(nameSpace, addressStore, ipfs, node, evmf, logger, subsStore, compositeTimelines, db)
+	ps := service.NewPulpitService(nameSpace, addressStore, ipfs, node, evmf, logger, subsStore, db)
 
 	app := NewWebApplication()
 	web.ConfigureWebServer(app, ps)
 	rest.ConfigureApiServer(app, ps)
 
 	return &Server{
-		opts:               opts,
-		store:              addressStore,
-		ipfs:               ipfs,
-		evmf:               evmf,
-		ps:                 ps,
-		secret:             "",
-		logger:             logger,
-		ipfsServer:         ipfsServer,
-		compositeTimelines: compositeTimelines,
-		db:                 db,
-		app:                app,
+		opts:       opts,
+		store:      addressStore,
+		ipfs:       ipfs,
+		evmf:       evmf,
+		ps:         ps,
+		secret:     "",
+		logger:     logger,
+		ipfsServer: ipfsServer,
+		db:         db,
+		app:        app,
 	}, nil
 }
 
 func (s *Server) Run() error {
 	wg := &ChannelWaitGroup{}
 	wg.Add(1)
-	errCh := make(chan error, 1+len(s.compositeTimelines))
+	errCh := make(chan error, 1)
 	go func() {
 		defer wg.Done()
 		if err := s.app.Run(iris.Addr(s.opts.Url)); err != nil {
 			errCh <- err
 		}
 	}()
-	for _, tl := range s.compositeTimelines {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err := tl.Run(); err != nil {
-				errCh <- err
-			}
-		}()
-	}
 
 	select {
 	case <-wg.Wait():
@@ -173,39 +157,4 @@ func NewWebApplication() *iris.Application {
 	app.AllowMethods(iris.MethodOptions)
 
 	return app
-}
-
-func loadCompositeTimelines(nameSpace string, node *core.IpfsNode, evmf event.ManagerFactory, logger *zap.Logger,
-	subsStore *service.SubscriptionsStoreImpl, db *bolt.DB) map[string]*timeline.CompositeTimeline {
-	compositeTimelines := make(map[string]*timeline.CompositeTimeline)
-
-	owners, er := subsStore.GetOwners()
-	if er != nil {
-		panic(fmt.Errorf("failed to read owners: %s", er))
-	}
-	for _, owner := range owners {
-		dao := timeline.NewCompositeDao(db, owner)
-		compositeTimeline, er := timeline.NewCompositeTimeline(nameSpace, node, evmf, logger, owner, dao)
-		if er != nil {
-			panic(fmt.Errorf("failed to create composite timeline: %s", er.Error()))
-		}
-		er = compositeTimeline.Init()
-		if er != nil {
-			panic(fmt.Errorf("failed to init composite timeline: %s", er.Error()))
-		}
-		subs, er := subsStore.GetAllSubscriptionsForOwner(owner)
-		if er != nil {
-			panic(fmt.Errorf("failed to read subscriptions: %s", er.Error()))
-		}
-		for _, sub := range subs {
-			addr := &address.Address{Address: sub.Address}
-			err := compositeTimeline.LoadTimeline(addr)
-			if err != nil {
-				panic(fmt.Errorf("failed to load subscription: %s", err.Error()))
-			}
-		}
-		compositeTimelines[owner] = compositeTimeline
-	}
-
-	return compositeTimelines
 }
